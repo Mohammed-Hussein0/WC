@@ -7,7 +7,157 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
+def get_dynamic_rho(competition):
+    """
+    Returns the appropriate rho value based on the competition type.
+    This allows for dynamic adjustment of the Dixon-Coles correlation parameter.
+    """
+    if competition in ["UEFA Euro", "Copa America", "African Cup of Nations", "AFC Asian Cup"]:
+        return -0.13
+    elif competition == "FIFA World Cup":
+        return -0.15
+    else:
+        return -0.12  # Default for friendlies and qualifiers
 
+
+def predict_match(home_team, away_team, model_home, model_away, team_memory, elo, competition="Friendly", is_neutral=0):
+    """
+    Predicts the outcome of a hypothetical match using the most up-to-date 
+    team memory and Elo ratings from the end of the dataset.
+    """
+    # 1. Check if teams exist in memory
+    if home_team not in team_memory or away_team not in team_memory:
+        return "Error: One or both teams not found in historical data."
+
+    # 2. Fetch the most recent rolling stats and Elo
+    home_hist = team_memory[home_team]
+    away_hist = team_memory[away_team]
+    
+    home_wins, home_draws, home_losses, home_goals, home_conceded = compute_stats(home_hist)
+    away_wins, away_draws, away_losses, away_goals, away_conceded = compute_stats(away_hist)
+    
+    home_elo = elo[home_team]
+    away_elo = elo[away_team]
+    
+    # Apply Home Advantage to the Elo difference if not neutral
+    HOME_ADVANTAGE = 100
+    effective_home_elo = home_elo + (0 if is_neutral else HOME_ADVANTAGE)
+    
+    # 3. Build the exact feature structure your model expects
+    match_features = {
+        "home_wins": home_wins,
+        "home_draws": home_draws,
+        "home_losses": home_losses,
+        "home_goals": home_goals,
+        "home_conceded": home_conceded,
+        "home_goal_diff": home_goals - home_conceded,
+        "home_elo": home_elo, # Keep base Elo for the model to see raw strength
+
+        # Use the effective Elo for the difference so the model understands the true gap
+        "elo_diff": effective_home_elo - away_elo, 
+        
+        # Tell the tree if it's a neutral venue
+        "is_neutral": is_neutral, 
+      
+        "away_wins": away_wins,
+        "away_draws": away_draws,
+        "away_losses": away_losses,
+        "away_goals": away_goals,
+        "away_conceded": away_conceded,
+        "away_goal_diff": away_goals - away_conceded,
+        "away_elo": away_elo,
+    }
+    
+    # Convert to dataframe for the model
+    X_new = pd.DataFrame([match_features])
+    
+    # 4. Predict Expected Goals (xG)
+    home_xg = model_home.predict(X_new)[0]
+    away_xg = model_away.predict(X_new)[0]
+    
+    # Failsafe: Regressors can technically predict negative goals if the team is terrible. Clamp to 0.01.
+    home_xg = max(0.01, home_xg)
+    away_xg = max(0.01, away_xg)
+    
+    # 5. Get Match Probabilities using Dixon-Coles
+    p_draw, p_home, p_away = calculate_match_probs_dc(home_xg, away_xg, competition)
+    
+    # 6. Find the Single Most Likely Exact Scoreline
+    best_score_prob = 0
+    best_score = (0, 0)
+    rho = get_dynamic_rho(competition)
+    
+    for h in range(6):
+        for a in range(6):
+            prob = poisson_prob(home_xg, h) * poisson_prob(away_xg, a)
+            # Apply Dixon-Coles modifiers to the exact scoreline calculation
+            if h == 0 and a == 0: prob *= max(0, 1 - (home_xg * away_xg * rho))
+            elif h == 0 and a == 1: prob *= max(0, 1 + (home_xg * rho))
+            elif h == 1 and a == 0: prob *= max(0, 1 + (away_xg * rho))
+            elif h == 1 and a == 1: prob *= max(0, 1 - rho)
+            
+            if prob > best_score_prob:
+                best_score_prob = prob
+                best_score = (h, a)
+                
+    # 7. Print the Professional Betting Output
+    print(f"\n{'='*45}")
+    print(f" {home_team} vs {away_team} | {competition}")
+    print(f"{'='*45}")
+    print(f"Expected Goals : {home_team} {home_xg:.2f} - {away_xg:.2f} {away_team}")
+    print(f"Most Likely Result : {best_score[0]} - {best_score[1]}")
+    print("-" * 45)
+    print("WIN PROBABILITIES")
+    print(f"{home_team} Win : {p_home*100:.1f}%")
+    print(f"Draw       : {p_draw*100:.1f}%")
+    print(f"{away_team} Win : {p_away*100:.1f}%")
+    print("-" * 45)
+    print("FAIR DECIMAL ODDS (Bookmaker Pricing)")
+    print(f"{home_team} Win : {1/p_home:.2f}")
+    print(f"Draw       : {1/p_draw:.2f}")
+    print(f"{away_team} Win : {1/p_away:.2f}")
+    print(f"{'='*45}\n")
+
+def run_interactive_predictor(model_home, model_away, team_memory, elo):
+    print("\n" + "*"*45)
+    print("⚽ WELCOME TO THE ML MATCH PREDICTOR ⚽")
+    print("*"*45)
+    
+    while True:
+        print("\n" + "-"*45)
+        home_team = input("Enter Home Team (or type 'exit' to quit): ").strip().lower()
+        if home_team.lower() in ['exit', 'quit', 'q']:
+            print("Exiting predictor. Goodbye!")
+            break
+            
+        away_team = input("Enter Away Team: ").strip().lower()
+        
+        print("\nSelect Competition Type:")
+        print("1. FIFA World Cup (Final Tournament)")
+        print("2. Continental Cup (UEFA Euro, Copa America, AFCON, Asian Cup)")
+        print("3. Qualifiers (World Cup / Continental)")
+        print("4. Nations League")
+        print("5. Friendly")
+        
+        choice = input("Enter choice (1-5): ").strip()
+        
+        # Map the number to a string that your get_dynamic_rho() function understands
+        if choice == "1":
+            competition = "FIFA World Cup"
+        elif choice == "2":
+            competition = "UEFA Euro" # Triggers the -0.13 rho logic
+        elif choice == "3":
+            competition = "FIFA World Cup qualification" # Triggers the -0.10 rho logic
+        elif choice == "4":
+            competition = "UEFA Nations League"
+        else:
+            competition = "Friendly" # Triggers the baseline -0.05 rho logic
+            
+        neutral_choice = input("\nIs this match on neutral ground? (y/n): ").strip().lower()
+        is_neutral = 1 if neutral_choice in ['y', 'yes'] else 0
+        
+        # Run the prediction
+        predict_match(home_team, away_team, model_home, model_away, team_memory, elo, competition, is_neutral)
 # -----------------------------
 # HELPER: compute stats
 # -----------------------------
@@ -34,16 +184,42 @@ def poisson_prob(lam, k):
     """Calculates the probability of scoring exactly 'k' goals given expected goals 'lam'"""
     return ((lam ** k) * math.exp(-lam)) / math.factorial(k)
 
-def calculate_match_probs(home_xg, away_xg, max_goals=10):
-    """Calculates 1X2 probabilities by checking every possible scoreline"""
+def calculate_match_probs_dc(home_xg, away_xg, com, rho=None, max_goals=10):
+    """
+    Calculates 1X2 probabilities using the Dixon-Coles adjustment.
+    rho (correlation): Negative values artificially increase the probability of 0-0 and 1-1 draws,
+    reflecting real-world team psychology (settling for a point).
+    """
+    if rho is None:
+        rho = get_dynamic_rho(com)
     prob_home = 0.0
     prob_draw = 0.0
     prob_away = 0.0
-    
+        
+        
     for h in range(max_goals):
         for a in range(max_goals):
+            # Base independent Poisson probability
             p_scoreline = poisson_prob(home_xg, h) * poisson_prob(away_xg, a)
             
+            # ---------------------------------------------------------
+            # DIXON-COLES ADJUSTMENT
+            # Surgically alters the probabilities of 0-0, 1-0, 0-1, and 1-1
+            # ---------------------------------------------------------
+            if h == 0 and a == 0:
+                tau = max(0, 1 - (home_xg * away_xg * rho))
+                p_scoreline *= tau
+            elif h == 0 and a == 1:
+                tau = max(0, 1 + (home_xg * rho))
+                p_scoreline *= tau
+            elif h == 1 and a == 0:
+                tau = max(0, 1 + (away_xg * rho))
+                p_scoreline *= tau
+            elif h == 1 and a == 1:
+                tau = max(0, 1 - rho)
+                p_scoreline *= tau
+                
+            # Aggregate into 1X2
             if h > a:
                 prob_home += p_scoreline
             elif h == a:
@@ -51,6 +227,7 @@ def calculate_match_probs(home_xg, away_xg, max_goals=10):
             else:
                 prob_away += p_scoreline
                 
+    # Normalize probabilities to ensure they sum perfectly to 1.0
     total = prob_home + prob_draw + prob_away
     return prob_draw / total, prob_home / total, prob_away / total
 # -----------------------------
@@ -76,7 +253,7 @@ df["result"] = df.apply(
 # -----------------------------
 # TEAM MEMORY (ROLLING WINDOW)
 # -----------------------------
-team_memory = defaultdict(lambda: deque(maxlen=25))
+team_memory = defaultdict(lambda: deque(maxlen=20))
 elo = defaultdict(lambda: 1500)
 
 # -----------------------------
@@ -95,8 +272,8 @@ for j, row in df.iterrows():
     if row["tournament"] == "Friendly":
          continue
 
-    home = row["home_team"]
-    away = row["away_team"]
+    home = row["home_team"].strip().lower()
+    away = row["away_team"].strip().lower()
     
 
     home_hist = team_memory[home]
@@ -166,10 +343,8 @@ for j, row in df.iterrows():
         actual_away = 0.5
     
     # 1 k factor based on competition type 
-    if row["tournament"] == "Friendly":
-     K = 10
      
-    elif row["tournament"] == "UEFA Euro" or row["tournament"] == "Copa America":
+    if row["tournament"] == "UEFA Euro" or row["tournament"] == "Copa America":
         K = 25
 
     elif row["tournament"] == "FIFA World Cup":
@@ -241,7 +416,8 @@ for i in range(len(pred_home_xg)):
     h_xg = pred_home_xg[i]
     a_xg = pred_away_xg[i]
     
-    p_draw, p_home, p_away = calculate_match_probs(h_xg, a_xg)
+    com = df.iloc[i]["tournament"]
+    p_draw, p_home, p_away = calculate_match_probs_dc(h_xg, a_xg, com)
     
     probs = [p_draw, p_home, p_away]
     
@@ -259,11 +435,5 @@ print(classification_report(y_res_test, final_predictions, zero_division=0))
 print("\nConfusion Matrix:")
 print(confusion_matrix(y_res_test, final_predictions))
 
-print("\n--- Match Sample Analysis ---")
-for i in range(3500, 3505):
-    if i < len(pred_home_xg):
-        print(f"Match {i}:")
-        print(f"  Expected Goals: Home {pred_home_xg[i]:.2f} - {pred_away_xg[i]:.2f} Away")
-        p_d, p_h, p_a = calculate_match_probs(pred_home_xg[i], pred_away_xg[i])
-        print(f"  Probs: Home={p_h:.2f}, Draw={p_d:.2f}, Away={p_a:.2f}")
-        print(f"  Predicted Class: {final_predictions[i]} | Actual: {y_res_test.iloc[i]}\n")
+    
+run_interactive_predictor(model_home, model_away, team_memory, elo)
