@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Football Match Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<header>
+  <div class="badge">AI Powered</div>
+  <h1>Football Match Predictor</h1>
+  <p>xG · Dixon-Coles · Elo Ratings · 32+ years of data</p>
+</header>
+
+<!-- ── Form ─────────────────────────────────── -->
+<div class="form-card">
+  <div class="teams-row">
+    <div>
+      <label for="home-input">Home Team</label>
+      <div class="autocomplete-wrap">
+        <input id="home-input" type="text" placeholder="e.g. brazil" autocomplete="off" />
+        <ul class="autocomplete-list" id="home-list"></ul>
+      </div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div>
+      <label for="away-input">Away Team</label>
+      <div class="autocomplete-wrap">
+        <input id="away-input" type="text" placeholder="e.g. argentina" autocomplete="off" />
+        <ul class="autocomplete-list" id="away-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label for="competition">Competition</label>
+      <select id="competition">
+        <option value="FIFA World Cup">FIFA World Cup</option>
+        <option value="UEFA Euro">UEFA Euro / Continental Cup</option>
+        <option value="Copa America">Copa America</option>
+        <option value="FIFA World Cup qualification">Qualifiers</option>
+        <option value="UEFA Nations League">Nations League</option>
+        <option value="Friendly" selected>Friendly</option>
+      </select>
+    </div>
+    <div>
+      <label>Neutral Venue</label>
+      <div class="toggle-wrap" style="margin-top:4px;">
+        <label class="toggle">
+          <input type="checkbox" id="neutral-toggle" />
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label" id="neutral-label">Home advantage ON</span>
+      </div>
+    </div>
+  </div>
+
+  <button id="predict-btn">Predict Match</button>
+</div>
+
+<!-- ── Error ─────────────────────────────────── -->
+<div id="error-box"></div>
+
+<!-- ── Result ────────────────────────────────── -->
+<div id="result-card">
+  <div class="match-header">
+    <div class="match-title" id="res-title"></div>
+    <div class="match-comp" id="res-comp"></div>
+  </div>
+
+  <div class="xg-row">
+    <div class="xg-box">
+      <div class="xg-val" id="res-home-xg"></div>
+      <div class="xg-lbl">Home xG</div>
+    </div>
+    <div class="xg-sep">—</div>
+    <div class="xg-box">
+      <div class="xg-val" id="res-away-xg"></div>
+      <div class="xg-lbl">Away xG</div>
+    </div>
+  </div>
+
+  <div class="scores-row">
+    <div class="score-chip">
+      <span>Most Likely</span>
+      <span id="res-score1"></span>
+    </div>
+    <div class="score-chip">
+      <span>2nd Most Likely</span>
+      <span id="res-score2"></span>
+    </div>
+  </div>
+
+  <div class="prob-section">
+    <div class="prob-row">
+      <span class="prob-lbl" id="prob-home-lbl">Home Win</span>
+      <div class="prob-bar-wrap"><div class="prob-bar bar-home" id="bar-home"></div></div>
+      <span class="prob-pct" id="pct-home"></span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-lbl">Draw</span>
+      <div class="prob-bar-wrap"><div class="prob-bar bar-draw" id="bar-draw"></div></div>
+      <span class="prob-pct" id="pct-draw"></span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-lbl" id="prob-away-lbl">Away Win</span>
+      <div class="prob-bar-wrap"><div class="prob-bar bar-away" id="bar-away"></div></div>
+      <span class="prob-pct" id="pct-away"></span>
+    </div>
+  </div>
+
+  <div class="odds-grid">
+    <div class="odds-box">
+      <div class="odds-val" id="odds-home"></div>
+      <div class="odds-lbl" id="odds-home-lbl">Home Win</div>
+    </div>
+    <div class="odds-box">
+      <div class="odds-val" id="odds-draw"></div>
+      <div class="odds-lbl">Draw</div>
+    </div>
+    <div class="odds-box">
+      <div class="odds-val" id="odds-away"></div>
+      <div class="odds-lbl" id="odds-away-lbl">Away Win</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
