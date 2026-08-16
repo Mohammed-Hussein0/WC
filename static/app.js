@@ -1,4 +1,7 @@
-const API = 'http://localhost:8000'; // absolute URL — works from file:// and any other origin
+// Automatically use current origin in production/server, or default to localhost:8000 if opened via file://
+const API = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null')
+  ? 'http://localhost:8000'
+  : window.location.origin;
 let allTeams = [];
 
 // ── Country Flag Mapping ──────────────────────

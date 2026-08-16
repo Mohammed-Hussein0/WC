@@ -54,9 +54,15 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
-@app.get("/", tags=["Info"])
+@app.get("/", tags=["UI"])
 def root():
-    """Health check and service info."""
+    """Serve the interactive HTML UI directly on the main root URL."""
+    return RedirectResponse(url="/static/index.html")
+
+
+@app.get("/health", tags=["Info"])
+def health():
+    """Health check and service info JSON."""
     state = app.state.model_state
     return {
         "service": "Football Match Predictor",
