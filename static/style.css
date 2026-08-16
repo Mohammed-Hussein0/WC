@@ -149,16 +149,36 @@ select option {
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .autocomplete-list li:hover,
 .autocomplete-list li.active {
   background: rgba(108,99,255,0.2);
 }
 
-.row2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.flag-img {
+  width: 22px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  flex-shrink: 0;
+}
+
+.flag-img-lg {
+  width: 30px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  vertical-align: middle;
+}
+
+.row2-single {
+  display: flex;
+  justify-content: center;
   margin-bottom: 24px;
 }
 
@@ -268,6 +288,11 @@ select option {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .match-comp {
   font-size: 12px;

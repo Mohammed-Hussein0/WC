@@ -1,6 +1,62 @@
 const API = 'http://localhost:8000'; // absolute URL — works from file:// and any other origin
 let allTeams = [];
 
+// ── Country Flag Mapping ──────────────────────
+const TEAM_FLAGS = {
+  "afghanistan": "af", "albania": "al", "algeria": "dz", "andorra": "ad", "angola": "ao",
+  "antigua and barbuda": "ag", "argentina": "ar", "armenia": "am", "aruba": "aw",
+  "australia": "au", "austria": "at", "azerbaijan": "az", "bahamas": "bs", "bahrain": "bh",
+  "bangladesh": "bd", "barbados": "bb", "belarus": "by", "belgium": "be", "belize": "bz",
+  "benin": "bj", "bermuda": "bm", "bhutan": "bt", "bolivia": "bo", "bosnia and herzegovina": "ba",
+  "botswana": "bw", "brazil": "br", "brunei": "bn", "bulgaria": "bg", "burkina faso": "bf",
+  "burundi": "bi", "cambodia": "kh", "cameroon": "cm", "canada": "ca", "cape verde": "cv",
+  "central african republic": "cf", "chad": "td", "chile": "cl", "china pr": "cn", "china": "cn",
+  "chinese taipei": "tw", "colombia": "co", "comoros": "km", "congo": "cg", "dr congo": "cd",
+  "congo dr": "cd", "costa rica": "cr", "croatia": "hr", "cuba": "cu", "curacao": "cw",
+  "cyprus": "cy", "czech republic": "cz", "czechia": "cz", "denmark": "dk", "djibouti": "dj",
+  "dominica": "dm", "dominican republic": "do", "ecuador": "ec", "egypt": "eg",
+  "el salvador": "sv", "england": "gb-eng", "equatorial guinea": "gq", "eritrea": "er",
+  "estonia": "ee", "eswatini": "sz", "ethiopia": "et", "faroe islands": "fo", "fiji": "fj",
+  "finland": "fi", "france": "fr", "gabon": "ga", "gambia": "gm", "georgia": "ge",
+  "germany": "de", "ghana": "gh", "gibraltar": "gi", "greece": "gr", "grenada": "gd",
+  "guatemala": "gt", "guinea": "gn", "guinea-bissau": "gw", "guyana": "gy", "haiti": "ht",
+  "honduras": "hn", "hong kong": "hk", "hungary": "hu", "iceland": "is", "india": "in",
+  "indonesia": "id", "iran": "ir", "iraq": "iq", "israel": "il", "italy": "it",
+  "ivory coast": "ci", "côte d'ivoire": "ci", "jamaica": "jm", "japan": "jp", "jordan": "jo",
+  "kazakhstan": "kz", "kenya": "ke", "kosovo": "xk", "kuwait": "kw", "kyrgyzstan": "kg",
+  "laos": "la", "latvia": "lv", "lebanon": "lb", "lesotho": "ls", "liberia": "lr",
+  "libya": "ly", "liechtenstein": "li", "lithuania": "lt", "luxembourg": "lu", "macau": "mo",
+  "madagascar": "mg", "malawi": "mw", "malaysia": "my", "maldives": "mv", "mali": "ml",
+  "malta": "mt", "mauritania": "mr", "mauritius": "mu", "mexico": "mx", "moldova": "md",
+  "mongolia": "mn", "montenegro": "me", "montserrat": "ms", "morocco": "ma", "mozambique": "mz",
+  "myanmar": "mm", "namibia": "na", "nepal": "np", "netherlands": "nl", "new caledonia": "nc",
+  "new zealand": "nz", "nicaragua": "ni", "niger": "ne", "nigeria": "ng", "north macedonia": "mk",
+  "northern ireland": "gb-nir", "norway": "no", "oman": "om", "pakistan": "pk", "palestine": "ps",
+  "panama": "pa", "papua new guinea": "pg", "paraguay": "py", "peru": "pe", "philippines": "ph",
+  "poland": "pl", "portugal": "pt", "puerto rico": "pr", "qatar": "qa", "republic of ireland": "ie",
+  "ireland": "ie", "romania": "ro", "russia": "ru", "rwanda": "rw", "saint kitts and nevis": "kn",
+  "saint lucia": "lc", "saint vincent and the grenadines": "vc", "samoa": "ws", "san marino": "sm",
+  "sao tome and principe": "st", "saudi arabia": "sa", "scotland": "gb-sct", "senegal": "sn",
+  "serbia": "rs", "seychelles": "sc", "sierra leone": "sl", "singapore": "sg", "slovakia": "sk",
+  "slovenia": "si", "solomon islands": "sb", "somalia": "so", "south africa": "za",
+  "south korea": "kr", "korea republic": "kr", "south sudan": "ss", "spain": "es", "sri lanka": "lk",
+  "sudan": "sd", "suriname": "sr", "sweden": "se", "switzerland": "ch", "syria": "sy",
+  "tahiti": "pf", "tajikistan": "tj", "tanzania": "tz", "thailand": "th", "timor-leste": "tl",
+  "togo": "tg", "tonga": "to", "trinidad and tobago": "tt", "tunisia": "tn", "turkey": "tr",
+  "türkiye": "tr", "turkmenistan": "tm", "uganda": "ug", "ukraine": "ua", "united arab emirates": "ae",
+  "united states": "us", "usa": "us", "uruguay": "uy", "uzbekistan": "uz", "vanuatu": "vu",
+  "venezuela": "ve", "vietnam": "vn", "wales": "gb-wls", "yemen": "ye", "zambia": "zm", "zimbabwe": "zw"
+};
+
+function getFlagImgHtml(teamName, isLarge = false) {
+  if (!teamName) return '';
+  const key = teamName.toLowerCase().trim();
+  const code = TEAM_FLAGS[key];
+  if (!code) return '';
+  const cssClass = isLarge ? 'flag-img-lg' : 'flag-img';
+  return `<img src="https://flagcdn.com/w40/${code}.png" class="${cssClass}" alt="" />`;
+}
+
 // ── Fetch team list ──────────────────────────
 async function loadTeams() {
   try {
@@ -35,7 +91,8 @@ function setupAutocomplete(inputId, listId) {
 
     matches.forEach((team, i) => {
       const li = document.createElement('li');
-      li.textContent = team;
+      const flagHtml = getFlagImgHtml(team);
+      li.innerHTML = `${flagHtml} <span>${team}</span>`;
       li.addEventListener('mousedown', () => {
         input.value = team;
         list.classList.remove('open');
@@ -52,7 +109,8 @@ function setupAutocomplete(inputId, listId) {
     } else if (e.key === 'ArrowUp') {
       activeIdx = Math.max(activeIdx - 1, 0);
     } else if (e.key === 'Enter' && activeIdx >= 0) {
-      input.value = items[activeIdx].textContent;
+      const itemSpan = items[activeIdx].querySelector('span');
+      input.value = itemSpan ? itemSpan.textContent : items[activeIdx].textContent;
       list.classList.remove('open');
       e.preventDefault();
     } else if (e.key === 'Escape') {
@@ -85,7 +143,6 @@ if (predictBtn) {
     const card = document.getElementById('result-card');
     const homeTeam = document.getElementById('home-input').value.trim();
     const awayTeam = document.getElementById('away-input').value.trim();
-    const competition = document.getElementById('competition').value;
     const isNeutral = neutralToggle.checked ? 1 : 0;
 
     errorBox.style.display = 'none';
@@ -108,7 +165,7 @@ if (predictBtn) {
         body: JSON.stringify({
           home_team: homeTeam,
           away_team: awayTeam,
-          competition,
+          competition: "FIFA World Cup",
           is_neutral: isNeutral
         }),
       });
@@ -140,8 +197,11 @@ function showError(msg) {
 function renderResult(d) {
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
-  document.getElementById('res-title').textContent = `${cap(d.home_team)} vs ${cap(d.away_team)}`;
-  document.getElementById('res-comp').textContent = d.competition;
+  const homeFlag = getFlagImgHtml(d.home_team, true);
+  const awayFlag = getFlagImgHtml(d.away_team, true);
+
+  document.getElementById('res-title').innerHTML = `${homeFlag} <span>${cap(d.home_team)}</span> <span style="color:var(--muted); font-size:14px; font-weight:600; margin:0 4px;">VS</span> ${awayFlag} <span>${cap(d.away_team)}</span>`;
+
   document.getElementById('res-home-xg').textContent = d.home_xg.toFixed(2);
   document.getElementById('res-away-xg').textContent = d.away_xg.toFixed(2);
   document.getElementById('res-score1').textContent = d.most_likely_score;

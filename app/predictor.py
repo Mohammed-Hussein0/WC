@@ -54,8 +54,33 @@ def predict_match(
 
     X_new = pd.DataFrame([match_features])
 
-    home_xg = max(0.01, state.model_home.predict(X_new)[0])
-    away_xg = max(0.01, state.model_away.predict(X_new)[0])
+    if is_neutral:
+        # On neutral ground, average predictions in both orientations to ensure 100% mathematical symmetry
+        inv_match_features = {
+            "home_wins": away_wins, "home_draws": away_draws, "home_losses": away_losses,
+            "home_goals": away_goals, "home_conceded": away_conceded,
+            "home_goal_diff": away_goals - away_conceded,
+            "home_elo": away_elo,
+            "elo_diff": away_elo - home_elo,
+            "is_neutral": is_neutral,
+            "away_wins": home_wins, "away_draws": home_draws, "away_losses": home_losses,
+            "away_goals": home_goals, "away_conceded": home_conceded,
+            "away_goal_diff": home_goals - home_conceded,
+            "away_elo": home_elo,
+        }
+        X_inv = pd.DataFrame([inv_match_features])
+
+        xg_home_direct = state.model_home.predict(X_new)[0]
+        xg_away_direct = state.model_away.predict(X_new)[0]
+
+        xg_away_as_home = state.model_home.predict(X_inv)[0]
+        xg_home_as_away = state.model_away.predict(X_inv)[0]
+
+        home_xg = max(0.01, (xg_home_direct + xg_home_as_away) / 2.0)
+        away_xg = max(0.01, (xg_away_direct + xg_away_as_home) / 2.0)
+    else:
+        home_xg = max(0.01, state.model_home.predict(X_new)[0])
+        away_xg = max(0.01, state.model_away.predict(X_new)[0])
 
     p_draw, p_home, p_away = calculate_match_probs_dc(home_xg, away_xg, competition)
 
